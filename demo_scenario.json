@@ -1,0 +1,36 @@
+{
+  "patient_id": "10014729",
+  "intervention_point": 168.0, 
+  "X": [
+    [7.1, 9.5, 201.0, 0.5, 76.0, 3.5, 140.0, 27.0],
+    [6.9, 10.3, 229.0, 0.5, 74.0, 3.5, 138.0, 23.0],
+    [15.4, 10.3, 135.0, 0.5, 80.0, 3.9, 136.0, 23.0],
+    [15.4, 10.3, 135.0, 0.5, 76.0, 3.6, 137.0, 25.0]
+  ],
+  "A_original": [0, 1],
+  "A_counterfactual": [1, 0],
+  "modification_type": "action_change",
+  "modification_details": {
+    "changed_dims": [0, 1],
+    "changed_targets": ["MRSA_targeted_antibiotics", "hospital_discharge"],
+    "description": "Switch from Cefazolin to Vancomycin and cancel discharge to observe the sudden WBC spike."
+  },
+  "predicted_outcome": {
+    "z_score": -1.2,
+    "raw_WBC": 8.5,
+    "confidence": 0.89,
+    "rationale": "The patient had a known history of MRSA. On the day of discharge, WBC unexpectedly rose from 6.9 to 15.4. Providing targeted MRSA coverage instead of standard prophylaxis would likely prevent the subsequent development of empyema."
+  },
+  "question": "What would be the patient's infection status if we had addressed the rising WBC with Vancomycin instead of discharging them on March 6?",
+  "rationale": "Persistent leukocytosis at discharge is a high-risk predictor for post-operative complications like the empyema seen in the second admission.",
+  "ground_truth": {
+    "rehospitalization_reason": "Empyema and Trunk Abscess",
+    "real_WBC_at_readmission": 21.2
+  },
+  "metadata": {
+    "dataset": "mimiciv_10014729",
+    "feature_names": ["WBC", "Hgb", "PLT", "Creatinine", "Glucose", "Potassium", "Sodium", "Bicarbonate"],
+    "split": "clinical_validation"
+  }
+}
+

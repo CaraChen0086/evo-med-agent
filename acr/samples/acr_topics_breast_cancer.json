@@ -1,0 +1,158 @@
+[
+  {
+    "panel": "Breast",
+    "topic": "Female Breast Cancer Screening",
+    "docs": [
+      {
+        "label": "Narrative & Rating Table",
+        "url": "https://acsearch.acr.org/docs/70910/Narrative/"
+      },
+      {
+        "label": "Evidence Table",
+        "url": "https://acsearch.acr.org/list/GetEvidence?TopicId=179&TopicName=Female%20Breast%20Cancer%20Screening"
+      },
+      {
+        "label": "Lit Search",
+        "url": "https://acsearch.acr.org/list/ViewSearchStrategy?ReleaseId=105&TopicId=179&LitReviewID=382"
+      },
+      {
+        "label": "Appendix",
+        "url": "https://acsearch.acr.org/list/GetAppendix?TopicId=179&PanelName=Breast"
+      },
+      {
+        "label": "Patient Summary",
+        "url": "https://www.jacr.org/article/S1546-1440(25)00333-3/pdf"
+      }
+    ]
+  },
+  {
+    "panel": "Breast",
+    "topic": "Imaging of Invasive Breast Cancer",
+    "docs": [
+      {
+        "label": "Narrative & Rating Table",
+        "url": "https://acsearch.acr.org/docs/3186697/Narrative/"
+      },
+      {
+        "label": "Evidence Table",
+        "url": "https://acsearch.acr.org/list/GetEvidence?TopicId=310&TopicName=Imaging%20of%20Invasive%20Breast%20Cancer"
+      },
+      {
+        "label": "Lit Search",
+        "url": "https://acsearch.acr.org/list/ViewSearchStrategy?ReleaseId=105&TopicId=310&LitReviewID=206"
+      },
+      {
+        "label": "Appendix",
+        "url": "https://acsearch.acr.org/list/GetAppendix?TopicId=310&PanelName=Breast"
+      },
+      {
+        "label": "Patient Summary",
+        "url": "https://www.jacr.org/action/showPdf?pii=S1546-1440%2824%2900428-9"
+      }
+    ]
+  },
+  {
+    "panel": "Breast",
+    "topic": "Male Breast Cancer Screening",
+    "docs": [
+      {
+        "label": "Narrative & Rating Table",
+        "url": "https://acsearch.acr.org/docs/3196044/Narrative/"
+      },
+      {
+        "label": "Evidence Table",
+        "url": "https://acsearch.acr.org/list/GetEvidence?TopicId=357&TopicName=Male%20Breast%20Cancer%20Screening"
+      },
+      {
+        "label": "Lit Search",
+        "url": "https://acsearch.acr.org/list/ViewSearchStrategy?ReleaseId=105&TopicId=357&LitReviewID=319"
+      },
+      {
+        "label": "Appendix",
+        "url": "https://acsearch.acr.org/list/GetAppendix?TopicId=357&PanelName=Breast"
+      },
+      {
+        "label": "Patient Summary",
+        "url": "https://www.jacr.org/article/S1546-1440(25)00407-7/pdf"
+      }
+    ]
+  },
+  {
+    "panel": "Breast",
+    "topic": "Monitoring Response to Neoadjuvant Systemic Therapy for Breast Cancer",
+    "docs": [
+      {
+        "label": "Narrative & Rating Table",
+        "url": "https://acsearch.acr.org/docs/3099208/Narrative/"
+      },
+      {
+        "label": "Evidence Table",
+        "url": "https://acsearch.acr.org/list/GetEvidence?TopicId=235&TopicName=Monitoring%20Response%20to%20Neoadjuvant%20Systemic%20Therapy%20for%20Breast%20Cancer"
+      },
+      {
+        "label": "Lit Search",
+        "url": "https://acsearch.acr.org/list/ViewSearchStrategy?ReleaseId=105&TopicId=235&LitReviewID=226"
+      },
+      {
+        "label": "Appendix",
+        "url": "https://acsearch.acr.org/list/GetAppendix?TopicId=235&PanelName=Breast"
+      },
+      {
+        "label": "Patient Summary",
+        "url": "https://www.jacr.org/article/S1546-1440(23)00528-8/pdf"
+      }
+    ]
+  },
+  {
+    "panel": "Breast",
+    "topic": "Supplemental Breast Cancer Screening Based on Breast Density",
+    "docs": [
+      {
+        "label": "Narrative & Rating Table",
+        "url": "https://acsearch.acr.org/docs/3158166/Narrative/"
+      },
+      {
+        "label": "Evidence Table",
+        "url": "https://acsearch.acr.org/list/GetEvidence?TopicId=287&TopicName=Supplemental%20Breast%20Cancer%20Screening%20Based%20on%20Breast%20Density"
+      },
+      {
+        "label": "Lit Search",
+        "url": "https://acsearch.acr.org/list/ViewSearchStrategy?ReleaseId=105&TopicId=287&LitReviewID=339"
+      },
+      {
+        "label": "Appendix",
+        "url": "https://acsearch.acr.org/list/GetAppendix?TopicId=287&PanelName=Breast"
+      },
+      {
+        "label": "Patient Summary",
+        "url": "https://www.jacr.org/action/showPdf?pii=S1546-1440%2822%2900178-8"
+      }
+    ]
+  },
+  {
+    "panel": "Breast",
+    "topic": "Transgender Breast Cancer Screening",
+    "docs": [
+      {
+        "label": "Narrative & Rating Table",
+        "url": "https://acsearch.acr.org/docs/3155692/Narrative/"
+      },
+      {
+        "label": "Evidence Table",
+        "url": "https://acsearch.acr.org/list/GetEvidence?TopicId=283&TopicName=Transgender%20Breast%20Cancer%20Screening"
+      },
+      {
+        "label": "Lit Search",
+        "url": "https://acsearch.acr.org/list/ViewSearchStrategy?ReleaseId=105&TopicId=283&LitReviewID=140"
+      },
+      {
+        "label": "Appendix",
+        "url": "https://acsearch.acr.org/list/GetAppendix?TopicId=283&PanelName=Breast"
+      },
+      {
+        "label": "Patient Summary",
+        "url": "https://www.jacr.org/article/S1546-1440(21)00933-9/pdf"
+      }
+    ]
+  }
+]

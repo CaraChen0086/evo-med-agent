@@ -1,0 +1,61 @@
+{
+  "verdict": "FLAG",
+  "rationale": "Verdict=FLAG. Action plausibility is weak, workflow consistency is weak, and outcome support is unsupported. Retrieved 2 evidence chunks.",
+  "references": [
+    {
+      "source": "https://example.org/clinical-guideline",
+      "chunk_id": "abc123",
+      "text": "...",
+      "distance": 0.22,
+      "source_type": "web",
+      "supports": []
+    }
+  ],
+  "checks": {
+    "action_plausibility": "weak",
+    "workflow_consistency": "weak",
+    "outcome_support": "unsupported"
+  },
+  "gaps": [
+    {
+      "gap_type": "outcome_gap",
+      "severity": "high",
+      "description": "Predicted outcome is not well-supported by retrieved evidence.",
+      "suggested_next_step": "Retrieve hemodynamic-effect or similar-case evidence."
+    }
+  ],
+  "memory_candidate": {
+    "should_store": true,
+    "memory_key": "hashed_key",
+    "memory_type": "verified_counterfactual",
+    "summary": "At t=24, scenario proposes ...",
+    "tags": ["change_ventilation", "flag"],
+    "provenance": {
+      "patient_id": "12345",
+      "intervention_point": 24.0,
+      "evidence_count": 2,
+      "verifier": "rag_verifier_v0"
+    }
+  },
+  "mits_export": {
+    "patient_id": "12345",
+    "intervention_point": 24.0,
+    "question": "...",
+    "action_delta": {
+      "mechanical_ventilation": {
+        "before": 1,
+        "after": 0
+      }
+    },
+    "verified_outcome": {
+      "z_score": -0.67,
+      "raw_mmHg": 52.8,
+      "confidence": 0.78
+    },
+    "evidence_summary": [
+      "[1] ...",
+      "[2] ..."
+    ],
+    "verifier_verdict": "FLAG"
+  }
+}
