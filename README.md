@@ -1,140 +1,132 @@
 # evo-med-agent Clinical Counterfactual Verifier
 
-This project is an intelligent medical decision verification system. Its purpose is to take a counterfactual treatment recommendation from a model—"what happens if we change treatment?"—search medical evidence, and produce a clear, evidence-based verdict.
+A practical, evidence-first tool that checks whether a medical AI's “what if we change treatment?” prediction is actually supported by real research and clinical guidelines.
 
-It is especially useful for:
-- auditing medical AI conclusions
-- validating counterfactual treatment recommendations
-- adding a safety layer to clinical decision support
-- generating structured, auditable judgment outputs
+This project is designed so that non-technical users, clinicians, and decision makers can understand a model’s recommendation through evidence, not guesswork.
 
-## How it works in three steps
+## Why this exists
 
-1. **Understand the question**
-   The system receives a structured clinical scenario: patient data, current treatment, proposed counterfactual treatment, predicted outcome, and related metadata. The system uses this input as a formal counterfactual question.
+When a medical AI proposes a counterfactual treatment—"what if we change the treatment plan?"—it is easy to produce a convincing answer without proof. This project adds a second layer: it verifies those recommendations by searching trusted medical sources and returns a clear verdict.
+
+## What it does in plain terms
+
+- Reads a structured clinical scenario: patient details, current treatment, proposed change, and the model’s predicted outcome.
+- Searches medical evidence automatically from two sources:
+  - PMC research articles
+  - ACR appropriateness guidelines
+- Judges the prediction using only the evidence it finds.
+- Produces a simple, structured result:
+  - `PASS` if evidence supports the prediction
+  - `FLAG` if the evidence is mixed or incomplete
+  - `REJECT` if evidence does not support the claim
+
+## Big picture: the mission
+
+This is not a medical chatbot.
+It is an automated evidence verifier for counterfactual medical decisions.
+
+It is built to:
+- make model recommendations auditable
+- reduce hidden risks in clinical AI outputs
+- turn complex medical reasoning into a verifiable workflow
+- help people understand whether a recommendation is backed by real evidence
+
+## Why this project is special
+
+- Focused on counterfactual medical decisions, not general chat.
+- Uses both medical research papers and clinical guideline recommendations.
+- Converts clinical questions into search queries automatically.
+- Runs a local judge model, so it can work offline without sending data to the cloud.
+- Outputs machine-readable JSON for audits, reports, or system integration.
+
+## Simple workflow
+
+1. **Understand the case**
+   - The system reads patient status, current treatment, the suggested change, and the expected outcome.
 
 2. **Find evidence**
-   It automatically searches two types of medical knowledge sources:
-   - **PMC literature**: extracts relevant paragraphs from full-text medical articles
-   - **ACR guidelines**: extracts recommendations from the American College of Radiology appropriateness criteria
+   - It searches PMC articles and ACR guidelines.
+   - It converts matching content into searchable evidence chunks.
 
-   These results are converted into evidence chunks and stored in a vector search database for later judgment.
+3. **Make the call**
+   - The judge model evaluates only that evidence.
+   - It generates a verdict and explains why.
 
-3. **Make a judgment**
-   A local Qwen language model acts as the judge and evaluates only the retrieved evidence to answer:
-   - Is the predicted outcome supported by evidence?
-   - Is there any contradiction between evidence and prediction?
-   - What is the structured final verdict: `PASS` / `FLAG` / `REJECT`?
+## Core implementation
 
+### `main.py`
 
-## What makes this project special
+The command-line entry point.
+- Loads a scenario file.
+- Runs the full verification pipeline.
+- Saves the final JSON result.
 
-- It is not a general chatbot. It is a medical counterfactual evidence verifier.
-- It turns complex clinical reasoning into a process of retrieval + evidence evaluation + structured conclusion.
-- For non-technical users, it behaves like an automated medical literature and guideline review tool.
-- For developers and products, it outputs machine-readable JSON for analysis, memory storage, or system integration.
+### `config.py`
 
+Central settings for the whole app:
+- Chroma vector database connection
+- whether to build PMC knowledge on demand
+- whether to include ACR guidance
+- retrieval limits, chunking, and model options
+- judge model settings
 
-## Key features
+### `query_builder.py`
 
-- Supports two knowledge sources:
-  - **PMC full-text papers** for research evidence
-  - **ACR guideline recommendations** for standard imaging and appropriateness guidance
-- Automatically generates scenario-specific search queries, so users do not need to write complicated search strings
-- Applies evidence filtering and reranking to avoid using irrelevant content for judgment
-- Runs the Qwen judge locally on GPU, reducing cloud dependency
-- Produces structured JSON output suitable for audit, storage, and downstream analysis
+Turns scenarios into search-ready queries.
+- Reads patient state and treatment change.
+- Summarizes the clinical question.
+- Builds PMC search queries.
+- Extracts keywords for ACR guideline lookup.
 
+### `kb.py`
 
-## Explanation for non-technical users
+Builds and queries the knowledge base.
+- Downloads PMC articles and parses full text.
+- Chunks articles into evidence pieces.
+- Stores them in Chroma.
+- Retrieves the most relevant evidence chunks for a question.
 
-Imagine a medical model says: “If this patient switches to MRSA-targeted antibiotics and leaves the hospital earlier, the infection risk will decrease.”
+### `verifier.py`
 
-This project will automatically:
-- read the patient state, current treatment, and model prediction
-- search medical papers and professional guidelines for relevant evidence
-- verify whether that evidence actually supports the prediction
-- tell you:
-  - `PASS`: evidence supports the prediction
-  - `FLAG`: evidence is incomplete or mixed
-  - `REJECT`: evidence does not support the prediction
+Orchestrates the full flow.
+- Rebuilds or loads PMC/ACR knowledge.
+- Retrieves and filters evidence.
+- Optionally reranks evidence.
+- Sends final evidence to the judge.
 
-That means it is not guessing. It is making a judgment based on evidence.
+### `judge.py`
 
+The evidence reviewer.
+- Evaluates only retrieved evidence.
+- Breaks the prediction into smaller claims.
+- Labels claims as supported / unsupported / contradicted.
+- Produces an overall verdict and reasoning.
 
-## What this project actually does
+### `acr/`
 
-### 1. `main.py`: the command-line entrypoint
+Handles ACR guideline support.
+- Searches ACR topics.
+- Parses recommendation tables.
+- Converts guideline content into evidence chunks.
 
-This is the script you run. It accepts a scenario file, executes the verification pipeline, and saves the result as JSON.
+## What is included in the repo
 
-### 2. `config.py`: central configuration
-
-All key runtime settings are defined here:
-- Chroma vector database address
-- whether to build PMC queries automatically
-- whether to include ACR guidelines
-- evidence retrieval limits, chunk size, and model choice
-- Qwen judge settings
-
-### 3. `query_builder.py`: turns a scenario into search queries
-
-This module is one of the core logics. It:
-- reads the original and counterfactual treatment changes
-- summarizes the latest patient state
-- generates multiple PMC search queries
-- builds the final vector retrieval query
-- extracts suitable keywords for ACR guideline search
-
-### 4. `kb.py`: knowledge base construction and retrieval
-
-It does two main jobs:
-- downloads PMC medical papers, parses abstracts and body text, chunks them, and saves them into Chroma
-- converts retrieval queries into vectors and returns the most relevant evidence chunks from Chroma
-
-### 5. `verifier.py`: orchestration of the verification flow
-
-This module sequences the entire process:
-- optionally rebuilds the PMC / ACR knowledge base
-- retrieves evidence and filters out unrelated material
-- reranks evidence if a reranker is available
-- passes the final evidence set to the judge for decision-making
-
-### 6. `judge.py`: evidence judgment module
-
-The judge uses Qwen to perform the final review:
-- it is only allowed to reason from retrieved evidence
-- it breaks the predicted outcome into smaller claims
-- it labels each claim as supported / unsupported / contradicted
-- it outputs an overall verdict and reasoning
-
-### 7. `acr/`: ACR guideline support
-
-The ACR folder implements:
-- searching ACR topics by query
-- parsing guideline pages and recommendation tables
-- converting structured recommendations into retrieval-friendly evidence chunks
-
-
-## Project structure overview
-
-- `README.md`: project guide
-- `config.py`: runtime configuration
-- `schemas.py`: input/output data structure definitions
-- `kb.py`: knowledge base creation and Chroma retrieval
-- `query_builder.py`: scenario-to-query conversion
-- `judge.py`: Qwen judgment logic
-- `verifier.py`: end-to-end verification flow
-- `main.py`: command-line entrypoint
-- `demo_scenario.json`: example input scenario
-- `example_output_schema.json`: example output format
-- `acr/`: ACR search and parsing modules
-- `outputs/`: sample output directory
-
+- `README.md` — this guide
+- `main.py` — CLI entrypoint
+- `config.py` — runtime configuration
+- `query_builder.py` — scenario-to-search logic
+- `kb.py` — knowledge base build and retrieval
+- `verifier.py` — verification orchestration
+- `judge.py` — evidence judgment logic
+- `schemas.py` — input/output JSON schema definitions
+- `demo_scenario.json` — example input file
+- `example_output_schema.json` — example output format
+- `acr/` — ACR guideline tools
+- `outputs/` — sample outputs
 
 ## How to run
 
-Assuming dependencies are installed and Chroma is running:
+Make sure dependencies are installed and Chroma is running.
 
 ```bash
 python main.py \
@@ -146,43 +138,21 @@ python main.py \
 ```
 
 Arguments:
-- `--scenario`: path to the scenario file to verify
-- `--output`: JSON output path for the verifier result
-- `--rebuild_kb`: force rebuilding the knowledge base
-- `--chroma_host` / `--chroma_port`: Chroma vector database address
+- `--scenario` — path to the clinical scenario input
+- `--output` — path to write the verifier result JSON
+- `--rebuild_kb` — force rebuilding the knowledge base
+- `--chroma_host` / `--chroma_port` — Chroma service address
 
+## Requirements
 
-## What you need before running
-
-- a GPU with CUDA support
-- installed packages: `torch`, `transformers`, `bitsandbytes`, `sentence-transformers`, `chromadb`, `requests`, `beautifulsoup4`
-- a running local Chroma vector search service
-- a configured NCBI email for PMC access
-
-
-## The big goal of this project
-
-This project is not about answering a medical question directly. It aims to:
-- build a retrievable evidence chain for each counterfactual recommendation
-- make the decision process verifiable and auditable
-- add an evidence review layer to medical AI decision workflows
-- let non-technical users understand whether a recommendation is supported by medical evidence
-
-
-## How you can use it
-
-- as a second audit layer for clinical model outputs
-- as a validation tool during medical AI development
-- as the backend for automated counterfactual report generation
-- as a traceable component within a clinical decision support system
-
-The CLI prints progress logs and finally reports where the output JSON has been written.
-
----
+- GPU with CUDA support
+- Python packages: `torch`, `transformers`, `bitsandbytes`, `sentence-transformers`, `chromadb`, `requests`, `beautifulsoup4`
+- Local Chroma vector search service
+- Configured NCBI email for PMC access
 
 ## Standalone PMC KB builder
 
-In addition to on‑demand KB building inside `RAGVerifier.verify`, you can pre‑build a PMC KB using `build_pmc_kb_v2.py`:
+You can prebuild the PMC knowledge base with `build_pmc_kb_v2.py`:
 
 ```bash
 python build_pmc_kb_v2.py \
@@ -197,24 +167,26 @@ python build_pmc_kb_v2.py \
 ```
 
 This flow:
-- reads one PMC query per line from `queries.txt`,  
-- searches PMC, deduplicates article IDs across queries,  
-- fetches full‑text XML, parses sections, chunks, and embeds, and  
-- upserts all chunks into the specified Chroma collection.
+- reads PMC queries from `queries.txt`
+- searches PMC and deduplicates article IDs
+- downloads and parses full-text XML
+- chunks and embeds content
+- saves the result into Chroma
 
-You can then run the verifier with `build_pmc_kb_on_demand=False` and point it at this prebuilt collection.
-
----
+Then run the verifier with `build_pmc_kb_on_demand=False` to use the prebuilt collection.
 
 ## Integration notes
 
-- The verifier is intentionally modular:
-  - `KnowledgeBase` can be reused in other clinical RAG tasks.  
-  - `QwenJudge` can be swapped out for another LLM or served model as long as it follows the same JSON contract.  
-  - `QueryBuilder` encodes assumptions about infection‑focused scenarios but can be extended to other domains.
+- The verifier is modular and reusable.
+- `KnowledgeBase` can be used for other clinical retrieval tasks.
+- `QwenJudge` can be replaced with another model that follows the same JSON contract.
+- `QueryBuilder` can be extended beyond infection-focused scenarios.
 
-- For large‑scale evaluation:
-  - Run `main.py` in a loop over many scenario JSON files.  
-  - Persist both the verifier outputs and internal `checks`/`gaps` for audit and error analysis.
+> For safety, this tool is decision support only and does not replace clinician judgment.
 
-- For safety‑critical use, treat the verifier as **decision support** only; it does not replace clinical judgment.
+## My Learning: Results and Insights 📌
+
+- The project shows how to turn a counterfactual clinical question into a verifiable evidence workflow.
+- It proves that medical AI outputs can be audited by combining retrieval and local judgment.
+- The most important insight is that evidence-driven review can make clinical recommendations clearer and safer.
+- Building a structured pipeline around PMC and ACR makes the verification process both explainable and actionable.
