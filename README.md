@@ -1,277 +1,140 @@
-# RAG Verifier v3 – Clinical Counterfactual Verifier
+# evo-med-agent Clinical Counterfactual Verifier
 
-This repository implements a scenario‑focused Retrieval‑Augmented Generation (RAG) verifier for clinical counterfactual questions.  
-Given a structured counterfactual scenario `(X, A_original, A_counterfactual, outcome, metadata)`, the system:
-- builds or queries a Chroma knowledge base from web and/or PMC full‑text articles,
-- retrieves and optionally re‑ranks relevant evidence,
-- calls a local Qwen LLM judge on GPU, and
-- outputs a structured JSON verdict for downstream analysis, memory, and MITS export.
+This project is an intelligent medical decision verification system. Its purpose is to take a counterfactual treatment recommendation from a model—"what happens if we change treatment?"—search medical evidence, and produce a clear, evidence-based verdict.
 
-The code is designed to plug into the broader `evo-med-agent` pipeline but can also be used as a standalone verifier.
+It is especially useful for:
+- auditing medical AI conclusions
+- validating counterfactual treatment recommendations
+- adding a safety layer to clinical decision support
+- generating structured, auditable judgment outputs
 
-**ACR Integration (v1)**: The system now supports ACR (American College of Radiology Appropriateness Criteria) as a second knowledge source alongside PMC. ACR provides guideline-level decision support through structured rating tables (procedure + appropriateness). PMC remains literature-focused. ACR v1 extracts core rating-table recommendations but does not fully parse narrative paragraphs.
+## How it works in three steps
 
----
+1. **Understand the question**
+   The system receives a structured clinical scenario: patient data, current treatment, proposed counterfactual treatment, predicted outcome, and related metadata. The system uses this input as a formal counterfactual question.
 
-## Repository structure
+2. **Find evidence**
+   It automatically searches two types of medical knowledge sources:
+   - **PMC literature**: extracts relevant paragraphs from full-text medical articles
+   - **ACR guidelines**: extracts recommendations from the American College of Radiology appropriateness criteria
 
-```text
-rag_verifier_v3/
-├── .gitignore
-├── README.md
-├── __init__.py
-├── config.py              # VerifierConfig: URLs, PMC / Chroma / model settings
-├── schemas.py             # Input/Output dataclasses and JSON schemas
-├── kb.py                  # Web + PMC knowledge base builder and Chroma client
-├── query_builder.py       # Scenario → PMC queries + retrieval query
-├── judge.py               # Qwen-based LLM judge (PASS / FLAG / REJECT)
-├── verifier.py            # End-to-end orchestration (KB + retrieval + judge)
-├── build_pmc_kb_v2.py     # Standalone PMC KB builder CLI
-├── main.py                # CLI entrypoint for running the verifier
-├── demo_scenario.json     # Example counterfactual scenario input
-├── example_output_schema.json  # Example of structured verifier output
-├── acr/
-│   ├── __init__.py
-│   ├── acr_search.py       # Search ACR topics from public list
-│   ├── acr_parser.py       # Parse ACR pages for rating tables
-│   ├── acr_builder.py      # Orchestrate ACR search + parse + chunk
-│   ├── acr_test.py         # ACR testing utilities
-│   └── samples/
-│       └── acr_topics_breast_cancer.json  # Example ACR search results
-└── outputs/
-    └── verifier_output.json  # Example verifier output
-```
+   These results are converted into evidence chunks and stored in a vector search database for later judgment.
 
----
+3. **Make a judgment**
+   A local Qwen language model acts as the judge and evaluates only the retrieved evidence to answer:
+   - Is the predicted outcome supported by evidence?
+   - Is there any contradiction between evidence and prediction?
+   - What is the structured final verdict: `PASS` / `FLAG` / `REJECT`?
 
-## High-level pipeline
 
-1. **Input scenario**  
-   A structured JSON scenario is parsed into `CounterfactualScenario` (see `schemas.py`).
+## What makes this project special
 
-2. **PMC KB building (optional, scenario‑focused)**  
-   - `QueryBuilder.build_pmc_queries` generates multiple PMC search queries based on the scenario (question, action delta, latest state, outcome text).  
-   - `KnowledgeBase.build_from_pmc_queries` (invoked from `RAGVerifier.verify`) uses NCBI E-utilities to:
-     - search PMC,
-     - fetch full‑text XML,
-     - parse abstracts and body sections,
-     - chunk and embed, and
-     - upsert into a Chroma collection.
+- It is not a general chatbot. It is a medical counterfactual evidence verifier.
+- It turns complex clinical reasoning into a process of retrieval + evidence evaluation + structured conclusion.
+- For non-technical users, it behaves like an automated medical literature and guideline review tool.
+- For developers and products, it outputs machine-readable JSON for analysis, memory storage, or system integration.
 
-3. **ACR KB building (optional, guideline‑focused)**  
-   - `QueryBuilder.build_acr_topic_query` generates an ACR topic search query.  
-   - `ACRBuilder.build_evidence_from_query` (invoked from `RAGVerifier.verify`) uses the ACR module to:
-     - search ACR topics,
-     - parse rating table pages,
-     - extract procedure + appropriateness recommendations,
-     - chunk and embed, and
-     - upsert into the same Chroma collection.
 
-4. **Retrieval**  
-   - `QueryBuilder.build_retrieval_query` constructs a short, focused retrieval query.  
-   - `KnowledgeBase.query` encodes queries using a sentence‑transformer (e.g. `Qwen/Qwen3-Embedding-0.6B`) and queries a Chroma HTTP collection.  
-   - Raw retrieved chunks are converted into `EvidenceItem` objects with source URL, text, distance, and metadata.
+## Key features
 
-5. **Filtering and reranking**  
-   - `RAGVerifier._filter_evidence` keeps evidence with infection/imaging‑related keywords or sufficiently good embedding distance.  
-   - If a CrossEncoder reranker (`BAAI/bge-reranker-base`) is available, `RAGVerifier._rerank` reorders evidence by relevance and trims to top‑k.
+- Supports two knowledge sources:
+  - **PMC full-text papers** for research evidence
+  - **ACR guideline recommendations** for standard imaging and appropriateness guidance
+- Automatically generates scenario-specific search queries, so users do not need to write complicated search strings
+- Applies evidence filtering and reranking to avoid using irrelevant content for judgment
+- Runs the Qwen judge locally on GPU, reducing cloud dependency
+- Produces structured JSON output suitable for audit, storage, and downstream analysis
 
-6. **Judging**  
-   - `QwenJudge` builds a strict JSON‑only prompt that:
-     - enumerates retrieved evidence (including PMC literature and ACR guidelines),
-     - instructs the model to decompose predicted outcome into claims,
-     - assigns each claim a status (`supported` / `unsupported` / `contradicted`), and
-     - chooses a global verdict (`PASS` / `FLAG` / `REJECT`).  
-   - The Qwen model runs locally on GPU via `transformers` + `bitsandbytes` 4‑bit quantization.
 
-7. **Structured output**  
-   - `RAGVerifier.verify` packages the verdict, rationale, references, internal checks, gaps, and optional memory / MITS exports into a `VerifierOutput` dataclass and finally into JSON.
+## Explanation for non-technical users
 
----
+Imagine a medical model says: “If this patient switches to MRSA-targeted antibiotics and leaves the hospital earlier, the infection risk will decrease.”
 
-## Input schema (scenario JSON)
+This project will automatically:
+- read the patient state, current treatment, and model prediction
+- search medical papers and professional guidelines for relevant evidence
+- verify whether that evidence actually supports the prediction
+- tell you:
+  - `PASS`: evidence supports the prediction
+  - `FLAG`: evidence is incomplete or mixed
+  - `REJECT`: evidence does not support the prediction
 
-The verifier consumes a single scenario JSON file, which is parsed into `CounterfactualScenario`.  
-An example is provided in `demo_scenario.json`.
+That means it is not guessing. It is making a judgment based on evidence.
 
-Key fields:
-- `patient_id: str`  
-  Unique patient identifier used for logging and exports.
 
-- `intervention_point: float`  
-  Time index (e.g. hours since admission) at which the counterfactual intervention is applied.
+## What this project actually does
 
-- `X: List[List[float]]`  
-  Longitudinal feature matrix; each inner list is a time step.  
-  Feature names are optionally given in `metadata.feature_names`.
+### 1. `main.py`: the command-line entrypoint
 
-- `A_original: List[int]`  
-  Original binary/multi‑hot action vector at `intervention_point`.
+This is the script you run. It accepts a scenario file, executes the verification pipeline, and saves the result as JSON.
 
-- `A_counterfactual: List[int]`  
-  Counterfactual action vector proposed by the agent.
+### 2. `config.py`: central configuration
 
-- `modification_type: Literal["action_change", "modality_mask", "temporal_shift"]`  
-  Type of counterfactual modification.
+All key runtime settings are defined here:
+- Chroma vector database address
+- whether to build PMC queries automatically
+- whether to include ACR guidelines
+- evidence retrieval limits, chunk size, and model choice
+- Qwen judge settings
 
-- `modification_details: Dict[str, Any]`  
-  Additional structured metadata about the intervention, typically including:
-  - `changed_dims: List[int]`
-  - `changed_targets: List[str]` (e.g. `"MRSA_targeted_antibiotics"`, `"hospital_discharge"`)
-  - `description: str` – human‑readable description of the intervention.
+### 3. `query_builder.py`: turns a scenario into search queries
 
-- `predicted_outcome: object`  
-  Parsed into `PredictedOutcome`:
-  - `z_score: Optional[float]`
-  - `raw_value: Optional[float]`  
-    Internally encoded as `raw_WBC` or `raw_mmHg` when relevant.
-  - `raw_name: Optional[str]`
-  - `confidence: Optional[float]`
-  - `rationale: Optional[str]` – free‑text explanation from the proposer.
+This module is one of the core logics. It:
+- reads the original and counterfactual treatment changes
+- summarizes the latest patient state
+- generates multiple PMC search queries
+- builds the final vector retrieval query
+- extracts suitable keywords for ACR guideline search
 
-- `question: str`  
-  The clinical counterfactual question (e.g. “What would be the patient’s infection status if …?”).
+### 4. `kb.py`: knowledge base construction and retrieval
 
-- `rationale: Optional[str]`  
-  Scenario‑level rationale (distinct from `predicted_outcome.rationale`).
+It does two main jobs:
+- downloads PMC medical papers, parses abstracts and body text, chunks them, and saves them into Chroma
+- converts retrieval queries into vectors and returns the most relevant evidence chunks from Chroma
 
-- `ground_truth: Optional[Any]`  
-  Structured ground truth from real data (e.g. rehospitalization reason, true lab values).
+### 5. `verifier.py`: orchestration of the verification flow
 
-- `metadata: Dict[str, Any]`  
-  Arbitrary scenario metadata. Common keys:
-  - `dataset: str`
-  - `feature_names: List[str]`
-  - `split: str`
+This module sequences the entire process:
+- optionally rebuilds the PMC / ACR knowledge base
+- retrieves evidence and filters out unrelated material
+- reranks evidence if a reranker is available
+- passes the final evidence set to the judge for decision-making
 
-All fields in `demo_scenario.json` are supported and used by the query builder and judge prompt.
+### 6. `judge.py`: evidence judgment module
 
----
+The judge uses Qwen to perform the final review:
+- it is only allowed to reason from retrieved evidence
+- it breaks the predicted outcome into smaller claims
+- it labels each claim as supported / unsupported / contradicted
+- it outputs an overall verdict and reasoning
 
-## Output schema (verifier JSON)
+### 7. `acr/`: ACR guideline support
 
-The main output is a JSON serialized `VerifierOutput`.  
-An example format is provided in `example_output_schema.json`.
+The ACR folder implements:
+- searching ACR topics by query
+- parsing guideline pages and recommendation tables
+- converting structured recommendations into retrieval-friendly evidence chunks
 
-Top‑level fields:
 
-- `verdict: str`  
-  One of:
-  - `"PASS"` – all key outcome claims are supported by retrieved evidence.  
-  - `"FLAG"` – partially supported, mixed, or incomplete evidence.  
-  - `"REJECT"` – key claims are unsupported or contradicted.
+## Project structure overview
 
-- `rationale: str`  
-  Natural‑language explanation from the Qwen judge summarizing why the verdict was chosen.
+- `README.md`: project guide
+- `config.py`: runtime configuration
+- `schemas.py`: input/output data structure definitions
+- `kb.py`: knowledge base creation and Chroma retrieval
+- `query_builder.py`: scenario-to-query conversion
+- `judge.py`: Qwen judgment logic
+- `verifier.py`: end-to-end verification flow
+- `main.py`: command-line entrypoint
+- `demo_scenario.json`: example input scenario
+- `example_output_schema.json`: example output format
+- `acr/`: ACR search and parsing modules
+- `outputs/`: sample output directory
 
-- `references: List[EvidenceItem]`  
-  Evidence actually passed to the judge. Each item has:
-  - `source: str` – URL or provenance (web / PMC / local case).  
-  - `chunk_id: str` – stable identifier in the Chroma collection.  
-  - `text: str` – cleaned chunk text, often prefixed with topic/section headers.  
-  - `distance: Optional[float]` – vector distance from retrieval.  
-  - `source_type: str` – e.g. `"web"` or `"pmc"`.  
-  - `supports: List[str]` – reserved for downstream claim mapping.
 
-- `checks: Dict[str, Any]`  
-  Internal diagnostics from the verifier and judge, for example:
-  - `"stage"` – `"retrieval"`, `"filtering"`, `"screening"`, `"complete"`, etc.  
-  - `"query_text"` – final retrieval query.  
-  - `"retrieved_count"`, `"filtered_count"`, `"final_evidence_count"`.  
-  - `"judge_model"`, `"prompt_tokens"`, `"parsed"`, `"claim_count"`, `"evidence_count"`.
+## How to run
 
-- `gaps: List[GapItem]`  
-  Structured descriptions of gaps identified during retrieval or judgment. Each gap includes:
-  - `gap_type: str` – e.g. `"retrieval_gap"`, `"evidence_gap"`, `"domain_mismatch"`, `"evidence_mismatch"`.  
-  - `severity: str` – `"low"`, `"medium"`, `"high"`.  
-  - `description: str` – what is missing or misaligned.  
-  - `suggested_next_step: str` – how to improve (e.g. rebuild KB, adjust queries, add sources).
-
-- `memory_candidate: Optional[MemoryCandidate]`  
-  Optional structured summary for long‑term memory:
-  - `should_store: bool`  
-  - `memory_key: str`  
-  - `memory_type: str` – e.g. `"verified_counterfactual"`.  
-  - `summary: str` – concise textual summary.  
-  - `tags: List[str]` – structured tags (e.g. actions, outcomes).  
-  - `provenance: Dict[str, Any]` – includes patient id, intervention point, evidence count, verifier version, etc.
-
-- `mits_export: Optional[MITSExport]`  
-  Optional export for MITS or downstream systems, including:
-  - `patient_id: str`  
-  - `intervention_point: float`  
-  - `question: str`  
-  - `action_delta: Dict[str, Dict[str, int]]` – action name → `{before, after}`.  
-  - `verified_outcome: Dict[str, Any]` – structured outcome (z‑score, raw value, confidence).  
-  - `evidence_summary: List[str]` – concise references, e.g. `"[1] ..."`  
-  - `verifier_verdict: str`
-
-When no evidence is retrieved or filtering removes all evidence, the verifier returns a `"REJECT"` verdict with a corresponding gap entry documenting why.
-
----
-
-## Configuration (VerifierConfig)
-
-`config.VerifierConfig` centralizes runtime configuration. Important fields:
-
-- **Knowledge base sources**
-  - `url_list: List[str]` – default MedlinePlus or other clinical URLs for web KB.  
-  - `local_case_dir: Optional[str]` / `local_case_glob: str` – optional directory of case JSONs.  
-  - `include_web_kb: bool` / `include_local_case_kb: bool` – toggle source types.
-
-- **Chroma / embedding**
-  - `chroma_host: str` / `chroma_port: int` – HTTP endpoint for Chroma server.  
-  - `collection_name: str` – main retrieval collection name.  
-  - `embedding_model: str` – sentence‑transformer model name (e.g. `Qwen/Qwen3-Embedding-0.6B`).  
-  - `chunk_size`, `chunk_overlap`, `min_chunk_len`, `max_title_len` – text chunking parameters.  
-  - `retrieval_top_k` / `top_k` – number of evidence items to retrieve.
-
-- **PMC / NCBI**
-  - `pmc_email: str` – email used for NCBI E‑utilities (required).  
-  - `pmc_api_key: Optional[str]` – optional NCBI API key for higher rate limits.  
-  - `pmc_collection_name: str` – Chroma collection for PMC chunks (often same as `collection_name`).  
-  - `pmc_max_per_query`, `pmc_max_total_articles` – upper bounds for PMC fetch.  
-  - `build_pmc_kb_on_demand: bool` – whether `verify()` builds PMC KB from scenario queries.  
-  - `force_rebuild_pmc_kb: bool` – if true, drop and recreate the collection before building.
-
-- **Actions and judge**
-  - `action_names: Dict[int, str]` – mapping from action indices to human‑readable names.  
-  - `min_evidence_for_pass: int` – minimal evidence count before allowing a `"PASS"` verdict.  
-  - `qwen_model_name: str` – HF model id for Qwen judge (e.g. `Qwen/Qwen2-1.5B-Instruct`).  
-  - `qwen_temperature`, `qwen_max_tokens` – generation parameters.  
-  - `qwen_base_url`, `qwen_api_key` – reserved for HTTP‑based variants; currently the judge uses local HF loading.
-
-Adjust these fields either by modifying `config.py` directly or by constructing a `VerifierConfig` in your own integration.
-
----
-
-## Dependencies and environment
-
-Core Python dependencies (non‑exhaustive):
-- `torch` (with CUDA support)
-- `transformers`
-- `bitsandbytes`
-- `sentence-transformers`
-- `chromadb`
-- `requests`
-- `beautifulsoup4`
-
-Install example (you may need to adapt versions to your environment):
-
-```bash
-pip install torch transformers bitsandbytes sentence-transformers chromadb beautifulsoup4 requests
-```
-
-Additional requirements:
-- A running **Chroma** server accessible at `http://{chroma_host}:{chroma_port}`.  
-- A GPU capable of hosting the Qwen judge model (e.g. `Qwen/Qwen2-1.5B-Instruct` with 4‑bit quantization).  
-- Valid NCBI email (and ideally an API key) configured in `VerifierConfig` for PMC access.
-
----
-
-## Running the verifier
-
-From inside the `rag_verifier_v3` directory, with dependencies installed and a Chroma server running:
+Assuming dependencies are installed and Chroma is running:
 
 ```bash
 python main.py \
@@ -283,20 +146,35 @@ python main.py \
 ```
 
 Arguments:
-- `--scenario` (required): path to the scenario JSON file.  
-- `--output` (optional): output path for the verifier JSON (defaults to `outputs/verifier_output.json`).  
-- `--rebuild_kb` (flag): if set, forces rebuilding the PMC / KB for this run (sets `force_rebuild_pmc_kb=True`).  
-- `--chroma_host`, `--chroma_port`: override Chroma HTTP endpoint (default `localhost:8000`).
+- `--scenario`: path to the scenario file to verify
+- `--output`: JSON output path for the verifier result
+- `--rebuild_kb`: force rebuilding the knowledge base
+- `--chroma_host` / `--chroma_port`: Chroma vector database address
 
-Alternatively, if you install this folder as a module on the Python path:
 
-```bash
-python -m rag_verifier_v3.main \
-  --scenario path/to/scenario.json \
-  --output path/to/output.json \
-  --chroma_host your_chroma_host \
-  --chroma_port your_chroma_port
-```
+## What you need before running
+
+- a GPU with CUDA support
+- installed packages: `torch`, `transformers`, `bitsandbytes`, `sentence-transformers`, `chromadb`, `requests`, `beautifulsoup4`
+- a running local Chroma vector search service
+- a configured NCBI email for PMC access
+
+
+## The big goal of this project
+
+This project is not about answering a medical question directly. It aims to:
+- build a retrievable evidence chain for each counterfactual recommendation
+- make the decision process verifiable and auditable
+- add an evidence review layer to medical AI decision workflows
+- let non-technical users understand whether a recommendation is supported by medical evidence
+
+
+## How you can use it
+
+- as a second audit layer for clinical model outputs
+- as a validation tool during medical AI development
+- as the backend for automated counterfactual report generation
+- as a traceable component within a clinical decision support system
 
 The CLI prints progress logs and finally reports where the output JSON has been written.
 
